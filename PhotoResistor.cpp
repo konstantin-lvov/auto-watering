@@ -98,8 +98,8 @@ void PhotoResistor::writeAverageVol() {
 void PhotoResistor::printEEPROM() {
 
   Serial.println("printeeprom");
-  int ind = 0;
-  while (EEPROM.read(ind + 1) != 255) {
+  int ind = space_begin;
+  while (EEPROM.read(ind) != 255) {
     Serial.print(String(ind) + ": ");
     Serial.println(EEPROM.read(ind));
     if (ind == 0 || ind == 12 || ind == 13) {
@@ -112,9 +112,9 @@ void PhotoResistor::printEEPROM() {
 
 void PhotoResistor::clearAddress() {
   int ind = 0;
+  
   while (EEPROM.read(ind) != 255){
-    EEPROM.update(ind, 0);
-    Serial.println(EEPROM.read(ind));
+    EEPROM.update(ind, 255);
     ind++;
     
   }

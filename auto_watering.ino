@@ -108,14 +108,14 @@ ISR (WDT_vect) {
   if (cicle_ind > Q_TO_SKIP_CICLE) {
 
     getData();
-
+    cicle_ind = 0;
+    /*в отношении яркости меньше - ярче*/
     if (photo_r.getAverageBrightness() < BR_LIMIT &&
         photo_r.getHeadLevel(photo_r.getBrightness()) < BR_LIMIT &&
         w_sensor.getAverageVolOfWetness() > WET_LIMIT) {
           
       Serial.println("action_cond");
       can = true;
-      cicle_ind = 0;
       
     }
   }
