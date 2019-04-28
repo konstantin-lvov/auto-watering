@@ -6,15 +6,16 @@ PhotoResistor::PhotoResistor(byte begin_, byte end_, byte pin) {//0,12,a1
   PhotoResistor::pin = pin;
   PhotoResistor::space_begin = begin_;
   PhotoResistor::space_end = end_;
-  PhotoResistor::hours_limit = end_;
+  PhotoResistor::hours_limit = end_ - begin_;
 
   pinMode(pin, INPUT);
 
-  /*FOR_TEST*/
-  if (EEPROM.read(13) != 255)
+  /*FOR_TEST
+    if (EEPROM.read(13) != 255)
     PhotoResistor::FT_address = EEPROM.read(13);
-  else
+    else
     PhotoResistor::FT_address = 14;
+  */
 
   if (EEPROM.read(space_begin) != 255)
     PhotoResistor::address = EEPROM.read(space_begin);
@@ -110,15 +111,17 @@ void PhotoResistor::printEEPROM() {
 }
 
 void PhotoResistor::clearAddress() {
-
-  for (byte i = 0; i < 38; i++) {
-    EEPROM.update(i, 0);
+  int ind = 0;
+  while (EEPROM.read(ind) != 255){
+    EEPROM.update(ind, 0);
+    Serial.println(EEPROM.read(ind));
+    ind++;
+    
   }
   Serial.println("addresses CLEAR");
-  PhotoResistor::address = 1;
-  PhotoResistor::FT_address = 14;
+  PhotoResistor::address = space_begin + 1;
+  //PhotoResistor::FT_address = 14;
   EEPROM.write(0, address);
-  EEPROM.write(13, FT_address);
-  EEPROM.put(40, (int)0);
+  //EEPROM.write(13, FT_address);
 
 }
