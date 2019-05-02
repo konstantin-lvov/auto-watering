@@ -18,7 +18,6 @@ class WetSensor {
 	private:
 		int currentVol;
 		int analogPin;
-		int sensorArray [10];
 		int average;
 };
 

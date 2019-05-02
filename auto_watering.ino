@@ -10,7 +10,7 @@ WetSensor w_sensor(A0);/*> 1000 (very dry)
 const int WET_LIMIT = 600; // лимит значения датчика влажности почвы
 
 PhotoResistor photo_r(0, 12, A1);
-const int BR_LIMIT = 5; // лимит среднего значения фоторезистора
+const int BR_LIMIT = 4; // лимит среднего значения фоторезистора
 
 const byte PUMP = 5; // пин помпы
 const int PUMP_LIMIT = 10000; // время работы помпы
@@ -71,6 +71,8 @@ void loop() {
     if (tmp.equals("g")) {
       Serial.print("BRIGHTNESS: ");
       Serial.println(photo_r.getBrightness());
+      Serial.print("AVERAGE_BRIGHTNESS: ");
+      Serial.println(photo_r.getAverageBrightness());
       Serial.print("WETNESS: ");
       Serial.println(w_sensor.getAverageVolOfWetness());
     }

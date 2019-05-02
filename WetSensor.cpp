@@ -8,13 +8,12 @@ WetSensor::WetSensor(int pin){
 }
 
 int WetSensor::getAverageVolOfWetness(){
+  
+Serial.print("AVERAGE BEFORE CICLE");
+Serial.println(average);
 
-for(int i = 0; i < 10; i++){
-    sensorArray [i] = analogRead(analogPin);
-    delay(5);
-  }
   for(int i = 0 ; i < 10; i++){
-    average += sensorArray [i];
+    average += analogRead(analogPin);
   }
   average = average / 10;
 

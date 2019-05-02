@@ -46,7 +46,6 @@ byte PhotoResistor::getAverageBrightness() {
     ind++;
   } while (EEPROM.read(ind) > 0 && ind != space_end);
   average /= ind - 1;
-  Serial.println("AVERAGE " + String(average) + " IND " + String(ind));
   return average;
 
 }
