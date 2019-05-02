@@ -1,32 +1,32 @@
 #include "Arduino.h"
 #include "WetSensor.h"
 
-WetSensor::WetSensor(int pin){
-	WetSensor::analogPin = pin;
-	pinMode(analogPin, INPUT);
-	digitalWrite(analogPin, HIGH);
+WetSensor::WetSensor(int pin) {
+  WetSensor::analogPin = pin;
+  pinMode(analogPin, INPUT);
+  digitalWrite(analogPin, HIGH);
 }
 
-int WetSensor::getAverageVolOfWetness(){
-  
-Serial.print("AVERAGE BEFORE CICLE");
-Serial.println(average);
+int WetSensor::getAverageVolOfWetness() {
 
-  for(int i = 0 ; i < 10; i++){
+  average = 0;
+
+  for (int i = 0 ; i < 10; i++) {
     average += analogRead(analogPin);
+    delay(100);
   }
   average = average / 10;
 
-return average;
+  return average;
 
 }
 
-int WetSensor::getVolOfWetness(){
-	currentVol = analogRead(analogPin);
-	
-	return currentVol;
+int WetSensor::getVolOfWetness() {
+  currentVol = analogRead(analogPin);
+
+  return currentVol;
 }
 
-float WetSensor::translateInVoltage(){
-	return (float)analogRead(analogPin) * 5. / 1024.;
+float WetSensor::translateInVoltage() {
+  return (float)analogRead(analogPin) * 5. / 1024.;
 }
