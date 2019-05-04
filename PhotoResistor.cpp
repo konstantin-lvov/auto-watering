@@ -10,13 +10,6 @@ PhotoResistor::PhotoResistor(byte begin_, byte end_, byte pin) {//0,12,a1
 
   pinMode(pin, INPUT);
 
-  /*FOR_TEST
-    if (EEPROM.read(13) != 255)
-    PhotoResistor::FT_address = EEPROM.read(13);
-    else
-    PhotoResistor::FT_address = 14;
-  */
-
   if (EEPROM.read(space_begin) != 255)
     PhotoResistor::address = EEPROM.read(space_begin);
   else
@@ -41,11 +34,17 @@ byte PhotoResistor::getAverageBrightness() {
 
   byte average = 0;
   byte ind = space_begin + 1;
-  do {
-    average += EEPROM.read(ind);
-    ind++;
-  } while (EEPROM.read(ind) > 0 && ind != space_end);
-  average /= ind - 1;
+  int i, c;
+  
+  for(i = EEPROM.read(space_begin)-1, c = 0; c < 6; c++, i--){
+    
+     if(i == space_begin) i = space_end;
+     average += EEPROM.read(i);
+     //Serial.println("index: " + String(i) + " average: " + String(average));
+     
+  }
+  
+  average /= 6;
   return average;
 
 }
@@ -80,19 +79,6 @@ int PhotoResistor::getHeadLevel(int x) {
 
 }
 
-/*FOR_TEST*/
-void PhotoResistor::writeAverageVol() {
-
-  byte tmp = 0;
-  tmp = getAverageBrightness();
-  EEPROM.update(FT_address, tmp);
-  Serial.println("Шаг_FT: " + String(EEPROM.read(13)));
-  FT_address++;
-  if (FT_address == 38)
-    FT_address = 14;
-  EEPROM.write(13, FT_address);
-
-}
 
 void PhotoResistor::printEEPROM() {
 

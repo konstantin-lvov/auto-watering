@@ -12,7 +12,6 @@ class PhotoResistor {
 		byte getAverageBrightness();
 		void writeNextBrightness(int vol);
 		int getHeadLevel(int x);
-		void writeAverageVol();//FOR_TEST
 		void printEEPROM();
 		int getBrightness();
     void clearAddress();
@@ -21,9 +20,8 @@ class PhotoResistor {
 		byte pin;
 		byte space_begin;
 		byte space_end;
-		byte hours_limit;
-		byte address;
-    byte FT_address;//FOR_TEST
+		byte hours_limit;// Количество часов для мониторинга
+		byte address;// Указатель на текущую ячейку памяти для записи уровня освещенности
 };
 
 #endif
