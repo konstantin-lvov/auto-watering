@@ -36,7 +36,7 @@ byte PhotoResistor::getAverageBrightness() {
   byte ind = space_begin + 1;
   int i, c;
   
-  for(i = EEPROM.read(space_begin)-1, c = 0; c < 6; c++, i--){
+  for(i = EEPROM.read(space_begin)-1, c = 0; c < AV_BR_LIMIT_CICLE; c++, i--){
     
      if(i == space_begin) i = space_end;
      average += EEPROM.read(i);

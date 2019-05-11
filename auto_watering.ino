@@ -3,23 +3,21 @@
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 
-WetSensor w_sensor(A0);/*> 1000 (very dry)
-                         ... not enough information about that sensor,
-                         perhaps < 500 this is quite wet soil */
-                         
-const int WET_LIMIT = 600; // лимит значения датчика влажности почвы
-
+WetSensor w_sensor(A0); // Объект-датчик влажности
 PhotoResistor photo_r(0, 12, A1);
-const int BR_LIMIT = 4; // лимит среднего значения фоторезистора
-
 const byte PUMP = 5; // пин помпы
+
+//------------------НАСТРОЙКИ-------------------
+const int WET_LIMIT = 185; // лимит значения датчика влажности почвы
+const int BR_LIMIT = 3; // лимит среднего значения фоторезистора
 const int PUMP_LIMIT = 10000; // время работы помпы
+const int Q_TO_SKIP_CICLE = 450; // Количество циклов сна без какой либо деятельности. 
+//Если время сна в power_down mode 8 секунд то 450 пропусков=1 час
+
 
 int photoresistor_vol;
-int cicle_ind = 0;
-const int Q_TO_SKIP_CICLE = 450; // Если время сна в power_down mode 8 секунд то 450 пропусков=1 час
-
-bool can = false;
+int cicle_ind = 0; // Это счетчик циклов сна
+bool can = false; // разрешает выполнить действие
 
 void setup() {
 
@@ -115,17 +113,17 @@ ISR (WDT_vect) {
     if (photo_r.getAverageBrightness() < BR_LIMIT &&
         photo_r.getHeadLevel(photo_r.getBrightness()) < BR_LIMIT &&
         w_sensor.getAverageVolOfWetness() > WET_LIMIT) {
-          
+
       Serial.println("action_cond");
       can = true;
-      
+
     }
   }
 
 }
 
 void action() {
-  
+
   Serial.println("ACTION");
 
   digitalWrite(PUMP, HIGH);
