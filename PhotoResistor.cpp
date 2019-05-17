@@ -44,7 +44,7 @@ byte PhotoResistor::getAverageBrightness() {
      
   }
   
-  average /= 6;
+  average /= AV_BR_LIMIT_CICLE;
   return average;
 
 }
