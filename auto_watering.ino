@@ -1,18 +1,21 @@
-#include "WetSensor.h" /*pinMode, digitalWrite on a board*/
+#include "WetSensor.h"
 #include "PhotoResistor.h"
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 
-WetSensor w_sensor(A0); // Объект-датчик влажности
-PhotoResistor photo_r(0, 12, A1); // Объект-датчик освещенности
+WetSensor w_sensor(A0); // Объект-датчик влажности (пин)
+PhotoResistor photo_r(0, 12, A1); // Объект-датчик освещенности. (начало выделенной памяти EEPROM, конец памяти, пин)
 const byte PUMP = 5; // пин помпы
+const byte LAMP = 9; // пин ленты
+const byte FAN = 6; // пин вентилятора
 
 //------------------НАСТРОЙКИ-------------------
 const int WET_LIMIT = 180; // лимит значения датчика влажности почвы
 const int BR_LIMIT = 3; // лимит среднего значения фоторезистора
+const int BR_LIMIT_LAMP = 7; // лимит освещенности до которого можно включать исскустенное освещение
 const int PUMP_LIMIT = 10000; // время работы помпы
 const int Q_TO_SKIP_CICLE = 450; // Количество циклов сна без какой либо деятельности.
-//Если время сна в power_down mode 8 секунд то 450 пропусков=1 час
+//Если время сна в power_down mode 8 секунд то 450 пропусков = 1 час
 
 
 int photoresistor_vol;
@@ -22,10 +25,15 @@ bool can = false; // разрешает выполнить действие
 void setup() {
 
   pinMode(PUMP, OUTPUT);
-  digitalWrite(PUMP, LOW);
+  pinMode(LAMP, OUTPUT);
+  pinMode(FAN, OUTPUT);
+  
+  analogWrite(PUMP, 0);
+  digitalWrite(LAMP, LOW);
+  digitalWrite(FAN, LOW);
+
   pinMode(13, OUTPUT);
   Serial.begin(9600);
-  //Serial.println("SETUP");
 
 }
 
@@ -73,7 +81,9 @@ void loop() {
       Serial.println(photo_r.getAverageBrightness());
       Serial.print("WETNESS: ");
       Serial.println(w_sensor.getAverageVolOfWetness());
-      
+      Serial.print("CICLE_IND_NOW: ");
+      Serial.println(cicle_ind);
+
     }
     if (tmp.equals("c")) {
       photo_r.clearAddress();
@@ -106,6 +116,14 @@ ISR (WDT_vect) {
 
   wdt_disable();
 
+  if (photo_r.getHeadLevel(photo_r.getBrightness()) < BR_LIMIT_LAMP) {
+    digitalWrite(LAMP, HIGH);
+    digitalWrite(LAMP, HIGH);
+  } else {
+    digitalWrite(LAMP, LOW);
+    digitalWrite(LAMP, LOW);
+  }
+
   if (cicle_ind > Q_TO_SKIP_CICLE) {
 
     getData();
@@ -127,9 +145,11 @@ void action() {
 
   Serial.println("ACTION");
   digitalWrite(13, HIGH);
-  digitalWrite(PUMP, HIGH);
+
+  analogWrite(PUMP, 80);
   delay(PUMP_LIMIT);
-  digitalWrite(PUMP, LOW);
+  analogWrite(PUMP, 0);
+
   digitalWrite(13, LOW);
 
   delay(100);
