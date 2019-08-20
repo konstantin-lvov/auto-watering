@@ -7,12 +7,11 @@ WetSensor w_sensor(A0); // Объект-датчик влажности (пин)
 PhotoResistor photo_r(0, 12, A1); // Объект-датчик освещенности. (начало выделенной памяти EEPROM, конец памяти, пин)
 const byte PUMP = 5; // пин помпы
 const byte LAMP = 9; // пин ленты
-const byte FAN = 6; // пин вентилятора
+const byte FAN = 3; // пин вентилятора
 
 //------------------НАСТРОЙКИ-------------------
-const int WET_LIMIT = 180; // лимит значения датчика влажности почвы
-const int BR_LIMIT = 3; // лимит среднего значения фоторезистора
-const int BR_LIMIT_LAMP = 7; // лимит освещенности до которого можно включать исскустенное освещение
+const int WET_LIMIT = 200; // лимит значения датчика влажности почвы
+const int BR_LIMIT = 5; // лимит среднего значения фоторезистора
 const int PUMP_LIMIT = 10000; // время работы помпы
 const int Q_TO_SKIP_CICLE = 450; // Количество циклов сна без какой либо деятельности.
 //Если время сна в power_down mode 8 секунд то 450 пропусков = 1 час
@@ -38,7 +37,13 @@ void setup() {
 }
 
 void loop() {
-
+  
+Serial.print("Average BR: ");
+Serial.println(photo_r.getAverageBrightness());
+Serial.print("Current BR: ");
+Serial.println(photo_r.getBrightness());
+Serial.print("WETNESS: ");
+Serial.println(w_sensor.getAverageVolOfWetness());
   /*действие вынесено сюда так как до основного цикла, возможно,
     ардуино не достаточно проснулас после "сна" что бы управлять пинами
     это не точно, и получилось в следствии долгих неудачных опытов*/
@@ -116,12 +121,12 @@ ISR (WDT_vect) {
 
   wdt_disable();
 
-  if (photo_r.getHeadLevel(photo_r.getBrightness()) < BR_LIMIT_LAMP) {
+  if (photo_r.getAverageBrightness() < BR_LIMIT) {
     digitalWrite(LAMP, HIGH);
-    digitalWrite(LAMP, HIGH);
+    digitalWrite(FAN, HIGH);
   } else {
     digitalWrite(LAMP, LOW);
-    digitalWrite(LAMP, LOW);
+    digitalWrite(FAN, LOW);
   }
 
   if (cicle_ind > Q_TO_SKIP_CICLE) {
