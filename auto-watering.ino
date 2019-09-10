@@ -1,8 +1,9 @@
 #include "WetSensor.h"
 
+unsigned long unsigned_long_size = 4294967295;
+
 byte base_hour = 12;
 byte base_minutes = 0;
-byte passed_minutes;
 byte current_hour = 12;
 byte current_minutes = 0;
 byte last_watering_hour;
@@ -11,7 +12,9 @@ byte GOOD_MORNING = 10;
 unsigned long base_millis = 0;
 unsigned long current_millis = 0;
 unsigned long passed_millis = 0;
+unsigned long passed_minutes;
 int wetness;
+
 
 WetSensor w_sensor(A0); // Объект-датчик влажности (пин)
 const byte PUMP = 5; // пин помпы
@@ -21,6 +24,7 @@ const byte FAN = 3; // пин вентилятора
 //------------------НАСТРОЙКИ-------------------
 int WET_LIMIT = 160; // лимит значения датчика влажности почвы
 const int PUMP_LIMIT = 10000; // время работы помпы
+const byte WATERING_INTERVAL = 2;
 
 void setup() {
   last_watering_hour = current_hour;
@@ -59,7 +63,7 @@ void loop() {
 
 void checkConditions(){
 
-  if(current_hour > GOOD_MORNING && current_hour < GOOD_NIGHT){
+  if(current_hour >= GOOD_MORNING && current_hour <= GOOD_NIGHT){
     digitalWrite(LAMP, HIGH);
     digitalWrite(FAN, HIGH);
   } else {
@@ -67,7 +71,7 @@ void checkConditions(){
     digitalWrite(FAN, LOW);
   }
 
-  if(current_hour - last_watering_hour >= 1
+  if(current_hour - last_watering_hour >= WATERING_INTERVAL
       && current_hour > GOOD_MORNING && current_hour < GOOD_NIGHT
       && wetness > WET_LIMIT){
     action();
@@ -94,7 +98,13 @@ void printTime(){
 
   current_millis = millis();
 
-  passed_millis = current_millis - base_millis;
+  //определение момента когда обнулится  millis()
+  if(current_millis - base_millis < 0){
+   passed_millis = unsigned_long_size - base_hour + current_millis;
+  } else {
+    passed_millis = current_millis - base_millis;
+  }
+  
   passed_minutes = ((passed_millis / 1000) / 60);
 
   if(base_minutes + passed_minutes > 59){
@@ -102,6 +112,10 @@ void printTime(){
     current_hour = base_hour + 1;
     base_minutes = current_minutes;
     base_hour = current_hour;
+    if(base_hour > 23){
+      base_hour = 0;
+      current_hour = 0;
+    }
     base_millis = millis();
   } else {
     current_minutes = base_minutes + passed_minutes;
