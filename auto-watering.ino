@@ -1,7 +1,16 @@
 #include "WetSensor.h"
+#include <EEPROM.h>
 
 unsigned long unsigned_long_size = 4294967295;
 
+/*В еепром записываем:
+current_hour - 0 addr
+current_minutes - 1 addr
+last_watering_hour - 2 addr
+GOOD_NIGHT - 3 addr
+GOOD_MORNING - 4 addr
+WET_LIMIT - 5 addr
+*/
 byte base_hour = 12;
 byte base_minutes = 0;
 byte current_hour = 12;
@@ -17,6 +26,7 @@ int wetness;
 
 
 WetSensor w_sensor(A0); // Объект-датчик влажности (пин)
+const byte BUTTON = 7;
 const byte PUMP = 5; // пин помпы
 const byte LAMP = 9; // пин ленты
 const byte FAN = 3; // пин вентилятора
@@ -27,7 +37,21 @@ const int PUMP_LIMIT = 10000; // время работы помпы
 const byte WATERING_INTERVAL = 2;
 
 void setup() {
-  last_watering_hour = current_hour;
+  
+  current_hour        = EEPROM.read(0);
+  current_minutes     = EEPROM.read(1);
+  last_watering_hour  = EEPROM.read(2);
+  GOOD_NIGHT          = EEPROM.read(3);
+  GOOD_MORNING        = EEPROM.read(4);
+  WET_LIMIT           = EEPROM.read(5);
+
+  base_hour = current_hour;
+  base_minutes = current_minutes;
+
+  base_millis = millis();
+  
+  
+  digitalWrite(BUTTON, HIGH);
   pinMode(PUMP, OUTPUT);
   pinMode(LAMP, OUTPUT);
   pinMode(FAN, OUTPUT);
@@ -42,6 +66,23 @@ void setup() {
 }
 
 void loop() {
+  
+  if(digitalRead(BUTTON) == LOW){
+      EEPROM.update(0, current_hour);
+      EEPROM.update(1, current_minutes);
+      EEPROM.update(2, last_watering_hour);
+      EEPROM.update(3, GOOD_NIGHT);
+      EEPROM.update(4, GOOD_MORNING);
+      EEPROM.update(5, WET_LIMIT);
+
+      Serial.println(EEPROM.read(0));
+      Serial.println(EEPROM.read(1));
+      Serial.println(EEPROM.read(2));
+      Serial.println(EEPROM.read(3));
+      Serial.println(EEPROM.read(4));
+      Serial.println(EEPROM.read(5));
+    }
+    
   wetness = w_sensor.getAverageVolOfWetness();
   
   Serial.println("##########################");
@@ -100,7 +141,7 @@ void printTime(){
 
   //определение момента когда обнулится  millis()
   if(current_millis - base_millis < 0){
-   passed_millis = unsigned_long_size - base_hour + current_millis;
+   passed_millis = unsigned_long_size - base_hour + current_millis;//dich polnaya
   } else {
     passed_millis = current_millis - base_millis;
   }
@@ -164,12 +205,6 @@ void command_line(){
     end_part.trim();
 
     Serial.println(String("accepted sequense : ") + f_letter + end_part);
-
-    /*if (tmp.substring(0, 1).equals("a") || tmp.substring(0, 1).equals("t")) {
-      f_letter = tmp.substring(0, 1);
-      end_part = tmp.substring(1, tmp.length());
-      Serial.println(String("accepted sequense : ") + f_letter + end_part);
-    }*/
 
     if(f_letter.equals("sw")){
       WET_LIMIT = end_part.toInt();
