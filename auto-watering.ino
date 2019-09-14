@@ -4,12 +4,12 @@
 unsigned long unsigned_long_size = 4294967295;
 
 /*В еепром записываем:
-current_hour - 0 addr
-current_minutes - 1 addr
-last_watering_hour - 2 addr
-GOOD_NIGHT - 3 addr
-GOOD_MORNING - 4 addr
-WET_LIMIT - 5 addr
+  current_hour - 0 addr
+  current_minutes - 1 addr
+  last_watering_hour - 2 addr
+  GOOD_NIGHT - 3 addr
+  GOOD_MORNING - 4 addr
+  WET_LIMIT - 5 addr
 */
 byte base_hour = 12;
 byte base_minutes = 0;
@@ -38,7 +38,7 @@ const int PUMP_LIMIT = 10000; // время работы помпы
 const byte WATERING_INTERVAL = 2;
 
 void setup() {
-  
+
   current_hour        = EEPROM.read(0);
   current_minutes     = EEPROM.read(1);
   last_watering_hour  = EEPROM.read(2);
@@ -51,8 +51,8 @@ void setup() {
   base_minutes = current_minutes;
 
   base_millis = millis();
-  
-  
+
+
   pinMode(BUTTON, INPUT);
   pinMode(PUMP, OUTPUT);
   pinMode(LAMP, OUTPUT);
@@ -71,50 +71,62 @@ void setup() {
 
 void loop() {
   
-  button_checkout();
-      
-  wetness = w_sensor.getAverageVolOfWetness();
-  
-  Serial.println("##########################");
-  if(current_hour > GOOD_MORNING && current_hour < GOOD_NIGHT){
-    Serial.println("===Day mode===");
-  } else {
-    Serial.println("===Night mode===");
-  }
-  
-  Serial.println(String("ground wetness - ") + wetness);
-  Serial.print("current time - ");
-  
-  printTime();
   command_line();
-  checkConditions();
-  Serial.println("##########################");
-  
+  delay(50);
+  button_checkout();
+
+  if (millis() - current_millis > 5000) {
+    Serial.println("##########################");
+    
+    wetness = w_sensor.getAverageVolOfWetness();
+
+    print_current_info();
+
+    printTime();
+    
+    checkConditions();
+    
+    Serial.println("##########################");
+  }
+
+
 }
 
-void button_checkout(){
-  
-  if(digitalRead(BUTTON) == LOW){//если кнопка нажата
+void print_current_info(){
+  if (current_hour > GOOD_MORNING && current_hour < GOOD_NIGHT) {
+      Serial.println("===Day===");
+    } else {
+      Serial.println("===Night===");
+    }
+
+    Serial.println(String("ground wetness - ") + wetness);
+    Serial.print("current time - ");
+}
+
+void button_checkout() {
+
+  if (digitalRead(BUTTON) == LOW) { //если кнопка нажата
     delay(300);
-    
-    if(digitalRead(BUTTON) == LOW){//если кнопка все еще нажата то изменяем скорость вентилятора
+
+    if (digitalRead(BUTTON) == LOW) { //если кнопка все еще нажата то изменяем скорость вентилятора
       bool slowdown = false;
-      while(digitalRead(BUTTON) == LOW){
-        if(slowdown == false){
+      while (digitalRead(BUTTON) == LOW) {
+        if (slowdown == false) {
           fan_speed++;
           delay(10);
-          if(fan_speed >= 253){
+          if (fan_speed >= 253) {
             slowdown = true;
           }
         }
-        if(slowdown == true){
+        if (slowdown == true) {
           fan_speed--;
           delay(10);
-          if(fan_speed <= 2){
+          if (fan_speed <= 2) {
             slowdown = false;
           }
         }
         analogWrite(FAN, fan_speed);
+        Serial.println(String("Fan speed: ") + fan_speed);
       }
     } else { // иначе запомнить все настройки
       digitalWrite(13, HIGH);
@@ -136,13 +148,13 @@ void button_checkout(){
       Serial.println(String("WET_LIMIT ") + EEPROM.read(5));
       Serial.println(String("fan_speed ") + EEPROM.read(6));
     }
-      
+
   }
 }
 
-void checkConditions(){
+void checkConditions() {
 
-  if(current_hour >= GOOD_MORNING && current_hour <= GOOD_NIGHT){
+  if (current_hour >= GOOD_MORNING && current_hour <= GOOD_NIGHT) {
     digitalWrite(LAMP, HIGH);
     analogWrite(FAN, fan_speed);
   } else {
@@ -150,16 +162,16 @@ void checkConditions(){
     analogWrite(FAN, fan_speed);
   }
 
-//wpt=20 ct=9 9-20=-11
-//если полив осуществлялся более 12 часов назад то нужно проверять на отрицательное значение
+  //wpt=20 ct=9 9-20=-11
+  //если полив осуществлялся более 12 часов назад то нужно проверять на отрицательное значение
   watering_pass_time =  current_hour - last_watering_hour;
-  if(watering_pass_time < 0){
+  if (watering_pass_time < 0) {
     watering_pass_time *= -1;
   }
-  
-  if( watering_pass_time >= WATERING_INTERVAL
-      && current_hour > GOOD_MORNING && current_hour < GOOD_NIGHT
-      && wetness > WET_LIMIT){
+
+  if ( watering_pass_time >= WATERING_INTERVAL
+       && current_hour > GOOD_MORNING && current_hour < GOOD_NIGHT
+       && wetness > WET_LIMIT) {
     action();
     last_watering_hour = current_hour;
   }
@@ -178,25 +190,25 @@ void action() {
 
 }
 
-void printTime(){
+void printTime() {
 
   current_millis = millis();
 
   //определение момента когда обнулится  millis()
-  if(current_millis - base_millis < 0){
-   passed_millis = unsigned_long_size - base_hour + current_millis;//dich polnaya
+  if (current_millis - base_millis < 0) {
+    passed_millis = unsigned_long_size - base_hour + current_millis;//dich polnaya nado peredelat
   } else {
     passed_millis = current_millis - base_millis;
   }
-  
+
   passed_minutes = ((passed_millis / 1000) / 60);
 
-  if(base_minutes + passed_minutes > 59){
+  if (base_minutes + passed_minutes > 59) {
     current_minutes = base_minutes + passed_minutes - 60;
     current_hour = base_hour + 1;
     base_minutes = current_minutes;
     base_hour = current_hour;
-    if(base_hour > 23){
+    if (base_hour > 23) {
       base_hour = 0;
       current_hour = 0;
     }
@@ -205,7 +217,7 @@ void printTime(){
     current_minutes = base_minutes + passed_minutes;
   }
 
-  if(base_hour < 10){
+  if (base_hour < 10) {
     Serial.print(String("0") + current_hour);
   } else {
     Serial.print(current_hour);
@@ -213,7 +225,7 @@ void printTime(){
 
   Serial.print(":");
 
-  if(current_minutes < 10){
+  if (current_minutes < 10) {
     Serial.println(String("0") + current_minutes);
   } else {
     Serial.println(current_minutes);
@@ -222,7 +234,7 @@ void printTime(){
 
 
 
-void command_line(){
+void command_line() {
 
   if (Serial.available()) {
 
@@ -234,9 +246,11 @@ void command_line(){
 
     while (Serial.available()) tmp += (char)Serial.read();
 
-    for(byte i = 0; i < tmp.length(); i++){
-      
-      if((int)tmp.charAt(i) != 32){
+    Serial.println(String("serial read : ") + tmp);
+
+    for (byte i = 0; i < tmp.length(); i++) {
+
+      if ((int)tmp.charAt(i) != 32) {
         f_letter += tmp.charAt(i);
       } else {
         end_part = tmp.substring(i, tmp.length());
@@ -249,14 +263,14 @@ void command_line(){
 
     Serial.println(String("accepted sequense : ") + f_letter + end_part);
 
-    if(f_letter.equals("sw")){
+    if (f_letter.equals("sw")) {
       WET_LIMIT = end_part.toInt();
       Serial.print("WET_LIMIT - ");
       Serial.println(WET_LIMIT);
       delay(5000);
     }
-    
-    if(f_letter.equals("h")){
+
+    if (f_letter.equals("h")) {
       Serial.println("--------------------");
       Serial.println("-->possible command:");
       Serial.println("a (action)");
@@ -268,7 +282,7 @@ void command_line(){
       delay(5000);
     }
 
-    if (f_letter.equals("sm")){
+    if (f_letter.equals("sm")) {
       GOOD_MORNING = end_part.toInt();
       Serial.print("MORNING - ");
       Serial.println(GOOD_MORNING);
@@ -277,7 +291,7 @@ void command_line(){
       delay(5000);
     }
 
-    if (f_letter.equals("sn")){
+    if (f_letter.equals("sn")) {
       GOOD_NIGHT = end_part.toInt();
       Serial.print("MORNING - ");
       Serial.println(GOOD_MORNING);
@@ -287,11 +301,11 @@ void command_line(){
     }
 
 
-    if (f_letter.equals("t")){
+    if (f_letter.equals("t")) {
       byte colon_ind = 0;
-      for (byte i = 0; i < end_part.length(); i++){
+      for (byte i = 0; i < end_part.length(); i++) {
         colon_ind = i; // сюда запишется индекс двоеточия когда сработает оператор break
-        if(end_part.charAt(i) != ':'){
+        if (end_part.charAt(i) != ':') {
           tmp_h += end_part.charAt(i);
         } else {
           break;
@@ -300,8 +314,8 @@ void command_line(){
       //f_letter = t, end_part = 20:13
       // |20:13
       // |01234
-      for (byte i = colon_ind + 1; i < end_part.length(); i++){
-        if((int)end_part.charAt(i) != 10){
+      for (byte i = colon_ind + 1; i < end_part.length(); i++) {
+        if ((int)end_part.charAt(i) != 10) {
           tmp_m += end_part.charAt(i);
         } else {
           break;

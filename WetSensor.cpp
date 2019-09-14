@@ -13,7 +13,7 @@ int WetSensor::getAverageVolOfWetness() {
 
   for (int i = 0 ; i < 10; i++) {
     average += analogRead(analogPin);
-    delay(99);
+    delay(10);
   }
   average = average / 10;
 
