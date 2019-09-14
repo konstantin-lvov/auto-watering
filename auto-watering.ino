@@ -159,7 +159,7 @@ void checkConditions() {
     analogWrite(FAN, fan_speed);
   } else {
     digitalWrite(LAMP, LOW);
-    analogWrite(FAN, fan_speed);
+    analogWrite(FAN, 0);
   }
 
   //wpt=20 ct=9 9-20=-11
