@@ -1,41 +1,56 @@
 #include "WetSensor.h"
 #include <EEPROM.h>
 
-unsigned long unsigned_long_size = 4294967295;
-
-/*В еепром записываем:
-  current_hour - 0 addr
-  current_minutes - 1 addr
-  last_watering_hour - 2 addr
-  GOOD_NIGHT - 3 addr
-  GOOD_MORNING - 4 addr
-  WET_LIMIT - 5 addr
-*/
-byte base_hour = 12;
+//=======================================ПЕРЕМЕННЫЕ=======================================
+unsigned long unsigned_long_size = 4294967295; // переменная для хранения максимального значения помещаемого в unsigned long
+byte base_hour = 12; 
 byte base_minutes = 0;
 byte current_hour = 12;
 byte current_minutes = 0;
 byte last_watering_hour;
-byte GOOD_NIGHT = 22;
-byte GOOD_MORNING = 10;
+
 byte watering_pass_time;
 byte fan_speed = 0;
 unsigned long base_millis = 0;
 unsigned long current_millis = 0;
 unsigned long passed_millis = 0;
 unsigned long passed_minutes;
+unsigned long last_print_millis;
 int wetness;
+bool slowdown = false;
 
+//=======================================ПИНЫ===========================================
 WetSensor w_sensor(A0); // Объект-датчик влажности (пин)
 const byte BUTTON = 7;
 const byte PUMP = 5; // пин помпы
 const byte LAMP = 9; // пин ленты
 const byte FAN = 3; // пин вентилятора
 
-//------------------НАСТРОЙКИ-------------------
-int WET_LIMIT = 160; // лимит значения датчика влажности почвы
-const int PUMP_LIMIT = 10000; // время работы помпы
-const byte WATERING_INTERVAL = 2;
+//=======================================НАСТРОЙКИ=======================================
+/* WET_LIMIT - лимит влажности почвы. То значение при котором будем считать что пора полить растение. 
+ * Проще всего установив физический датчик в почву, сразу полить растение.
+ * После этого в serial можно увидеть значение влажной почвы. Прибавив к этому значениею 50-100 едениц
+ * (в зависимости от потребностей растения) получим значение которое нужно подставить в данную переменную.
+ */
+int WET_LIMIT = 160;
+
+/*  PUMP_LIMIT - время работы помпы. Нужно учитывать длинну трубок от помпы до растения. Что бы не случилось
+ *  того, что помпа отработала, а вода до растения еще не добралась. Указывается в миллисекундах.
+ */
+int PUMP_LIMIT = 10000;
+
+/*  WATERING_INTERVAL - минимальный интервал, который будет выдержан перед повторным поливом растения. При установленном значении
+ *  равно 0 - полив будет возможен сразу после предыдущего полива. Если ипользуются датчики влажности, можно смело отключать
+ *  данныую фунцкию, т.к. сразу после полива значение влажности почвы будет ниже WET_LIMIT и это не даст поливу сработать вновь.
+ */
+byte WATERING_INTERVAL = 0;
+/*  GOOD_MORNING и GOOD_NIGHT  - время (в часах), которое используется для определения времени для включения освещения, а так же
+ *   возможности для включения помпы (т.е. полива растения). Освещение будет включено и помпа сможет включиться если время отсчитываемое
+ *   программно будет больше GOOD_MORNING и меньше GOOD_NIGHT
+ */
+byte GOOD_MORNING = 10;
+byte GOOD_NIGHT = 22;
+
 
 void setup() {
 
@@ -46,11 +61,14 @@ void setup() {
   GOOD_MORNING        = EEPROM.read(4);
   WET_LIMIT           = EEPROM.read(5);
   fan_speed           = EEPROM.read(6);
+  WATERING_INTERVAL   = EEPROM.read(7);
+  PUMP_LIMIT          = EEPROM.read(8);
 
   base_hour = current_hour;
   base_minutes = current_minutes;
 
   base_millis = millis();
+  last_print_millis = base_millis;
 
 
   pinMode(BUTTON, INPUT);
@@ -62,7 +80,6 @@ void setup() {
   analogWrite(PUMP, 0);
   analogWrite(FAN, fan_speed);
   digitalWrite(LAMP, LOW);
-  //digitalWrite(FAN, LOW);
 
   pinMode(13, OUTPUT);
   Serial.begin(9600);
@@ -70,29 +87,45 @@ void setup() {
 }
 
 void loop() {
-  
+/*
+1. Собираем данные с датчика влажности (внутри реализовано с delay на 100 миллисекунд)
+*/
+  wetness = w_sensor.getAverageVolOfWetness();
+/*
+2. Устанавливаем текущее время. Происходит не чаще чем раз в 60-70 миллисекунд.
+*/
+  set_clock();
+/*
+3. Проверяем нет ли команд в serial для исполнения. Без задержки работало не корректно.
+*/  
   command_line();
   delay(50);
+/*
+4. Проверяем не нажата ли кнопка управляющая скоростью вентилятора и выводом хранимых переменных в serial
+*/   
   button_checkout();
-
-  if (millis() - current_millis > 5000) {
-    Serial.println("##########################");
+/*
+5. Проверяем условия для полива и освещения. И поливаем если условия совпадли.
+*/  
+  checkConditions();
+/*
+6. Печатаем время и текущее состояние влажности в serial каждые 5 сек.
+*/
+  if (millis() - last_print_millis > 5000) {
     
-    wetness = w_sensor.getAverageVolOfWetness();
-
     print_current_info();
 
-    printTime();
-    
-    checkConditions();
-    
-    Serial.println("##########################");
   }
 
 
 }
 
 void print_current_info(){
+
+  last_print_millis = millis();
+  
+  Serial.println("##########################");
+  
   if (current_hour > GOOD_MORNING && current_hour < GOOD_NIGHT) {
       Serial.println("===Day===");
     } else {
@@ -100,7 +133,23 @@ void print_current_info(){
     }
 
     Serial.println(String("ground wetness - ") + wetness);
+    
     Serial.print("current time - ");
+
+  if (current_hour < 10) {
+    Serial.print(String("0") + current_hour);
+  } else {
+    Serial.print(current_hour);
+  }
+
+  Serial.print(":");
+
+  if (current_minutes < 10) {
+    Serial.println(String("0") + current_minutes);
+  } else {
+    Serial.println(current_minutes);
+  }
+    Serial.println("##########################");
 }
 
 void button_checkout() {
@@ -109,20 +158,25 @@ void button_checkout() {
     delay(300);
 
     if (digitalRead(BUTTON) == LOW) { //если кнопка все еще нажата то изменяем скорость вентилятора
-      bool slowdown = false;
+      
       while (digitalRead(BUTTON) == LOW) {
         if (slowdown == false) {
           fan_speed++;
           delay(10);
-          if (fan_speed >= 253) {
+          if (fan_speed >= 255) {
             slowdown = true;
+            delay(500);
           }
         }
         if (slowdown == true) {
           fan_speed--;
           delay(10);
-          if (fan_speed <= 2) {
+          if (fan_speed < 10){
+            delay(300);
+          }
+          if (fan_speed <= 0) {
             slowdown = false;
+            delay(500);
           }
         }
         analogWrite(FAN, fan_speed);
@@ -139,6 +193,8 @@ void button_checkout() {
       EEPROM.update(4, GOOD_MORNING);
       EEPROM.update(5, WET_LIMIT);
       EEPROM.update(6, fan_speed);
+      EEPROM.update(7, WATERING_INTERVAL);
+      EEPROM.update(8, PUMP_LIMIT);
 
       Serial.println(String("current_hour ") + EEPROM.read(0));
       Serial.println(String("current_minutes ") + EEPROM.read(1));
@@ -147,8 +203,10 @@ void button_checkout() {
       Serial.println(String("GOOD_MORNING ") + EEPROM.read(4));
       Serial.println(String("WET_LIMIT ") + EEPROM.read(5));
       Serial.println(String("fan_speed ") + EEPROM.read(6));
+      Serial.println(String("WATERING_INTERVAL ") + EEPROM.read(7));
+      Serial.println(String("PUMP_LIMIT ") + EEPROM.read(8));
     }
-
+    EEPROM.update(6, fan_speed);
   }
 }
 
@@ -190,15 +248,15 @@ void action() {
 
 }
 
-void printTime() {
-
-  current_millis = millis();
+void set_clock(){
+  
+   current_millis = millis();
 
   //определение момента когда обнулится  millis()
   if (current_millis - base_millis < 0) {
-    passed_millis = unsigned_long_size - base_hour + current_millis;//dich polnaya nado peredelat
+    passed_millis = unsigned_long_size - base_millis + current_millis;
   } else {
-    passed_millis = current_millis - base_millis;
+    passed_millis = current_millis - base_millis; // количество милисекунд прошедших с момента смены часа
   }
 
   passed_minutes = ((passed_millis / 1000) / 60);
@@ -216,23 +274,7 @@ void printTime() {
   } else {
     current_minutes = base_minutes + passed_minutes;
   }
-
-  if (base_hour < 10) {
-    Serial.print(String("0") + current_hour);
-  } else {
-    Serial.print(current_hour);
-  }
-
-  Serial.print(":");
-
-  if (current_minutes < 10) {
-    Serial.println(String("0") + current_minutes);
-  } else {
-    Serial.println(current_minutes);
-  }
 }
-
-
 
 void command_line() {
 
@@ -246,7 +288,7 @@ void command_line() {
 
     while (Serial.available()) tmp += (char)Serial.read();
 
-    Serial.println(String("serial read : ") + tmp);
+    //Serial.println(String("serial read : ") + tmp);
 
     for (byte i = 0; i < tmp.length(); i++) {
 
@@ -261,42 +303,70 @@ void command_line() {
     f_letter.trim();
     end_part.trim();
 
-    Serial.println(String("accepted sequense : ") + f_letter + end_part);
-
-    if (f_letter.equals("sw")) {
-      WET_LIMIT = end_part.toInt();
-      Serial.print("WET_LIMIT - ");
-      Serial.println(WET_LIMIT);
-      delay(5000);
-    }
+    //Serial.println(String("accepted sequense : ") + f_letter + end_part);
 
     if (f_letter.equals("h")) {
       Serial.println("--------------------");
       Serial.println("-->possible command:");
       Serial.println("a (action)");
       Serial.println("t hh:mm (set current time)");
-      Serial.println("sm hh (set GOOD_MORNING)");
-      Serial.println("sn hh (set GOOD_NIGHT)");
-      Serial.println("sw int (set WET_LIMIT)");
+      Serial.println("sgom hh (set GOOD_MORNING)");
+      Serial.println("sgon hh (set GOOD_NIGHT)");
+      Serial.println("swel int (set WET_LIMIT)");
+      Serial.println("swai hh (set WATERING_INTERVAL)");
+      Serial.println("spul millis (set PUMP_LIMIT)");
       Serial.println("--------------------");
       delay(5000);
     }
 
-    if (f_letter.equals("sm")) {
-      GOOD_MORNING = end_part.toInt();
-      Serial.print("MORNING - ");
-      Serial.println(GOOD_MORNING);
-      Serial.print("NIGHT - ");
-      Serial.println(GOOD_NIGHT);
+
+if (f_letter.equals("spul")) {
+      Serial.print("old PUMP_LIMIT - ");
+      Serial.println(PUMP_LIMIT);
+      PUMP_LIMIT = end_part.toInt();
+      Serial.print("new PUMP_LIMIT - ");
+      Serial.println(PUMP_LIMIT);
+      EEPROM.update(8, PUMP_LIMIT);
+      delay(5000);
+    }
+    
+    if (f_letter.equals("swel")) {
+      Serial.print("old WET_LIMIT - ");
+      Serial.println(WET_LIMIT);
+      WET_LIMIT = end_part.toInt();
+      Serial.print("new WET_LIMIT - ");
+      Serial.println(WET_LIMIT);
+      EEPROM.update(5, WET_LIMIT);
       delay(5000);
     }
 
-    if (f_letter.equals("sn")) {
-      GOOD_NIGHT = end_part.toInt();
-      Serial.print("MORNING - ");
+    if (f_letter.equals("swai")) {
+      Serial.print("old WATERING_INTERVAL - ");
+      Serial.println(WATERING_INTERVAL);
+      WATERING_INTERVAL = end_part.toInt();
+      Serial.print("new WATERING_INTERVAL - ");
+      Serial.println(WATERING_INTERVAL);
+      EEPROM.update(7, WATERING_INTERVAL);
+      delay(5000);
+    }
+
+    if (f_letter.equals("sgom")) {
+      Serial.print("old MORNING - ");
       Serial.println(GOOD_MORNING);
-      Serial.print("NIGHT - ");
+      GOOD_MORNING = end_part.toInt();
+      Serial.print("new MORNING - ");
+      Serial.println(GOOD_MORNING);
+      EEPROM.update(4, GOOD_MORNING);
+      delay(5000);
+    }
+
+    if (f_letter.equals("sgon")) {
+      Serial.print("old NIGHT - ");
       Serial.println(GOOD_NIGHT);
+      GOOD_NIGHT = end_part.toInt();
+      Serial.print("new NIGHT - ");
+      Serial.println(GOOD_NIGHT);
+      EEPROM.update(3, GOOD_NIGHT);
       delay(5000);
     }
 
@@ -327,7 +397,14 @@ void command_line() {
       current_hour = base_hour;
       last_watering_hour = base_hour;
       base_millis = millis();
+
+      Serial.println(String("Время установлено на ") + current_hour + String(":") + base_minutes);
+
+      EEPROM.update(0, current_hour);
+      EEPROM.update(1, base_minutes);
+      EEPROM.update(2, last_watering_hour);
     }
+    
 
     if (f_letter.equals("a")) {
       action();
